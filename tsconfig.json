@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "lib": ["DOM", "ES2015", "ES2016", "ES2017", "ES2018"]
+  }
+}

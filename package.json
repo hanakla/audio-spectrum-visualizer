@@ -1,0 +1,21 @@
+{
+  "name": "dj-spectrum",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "parcel serve ./src/index.html"
+  },
+  "devDependencies": {
+    "@types/bezier-easing": "^2.1.2",
+    "@types/lodash-es": "^4.17.3",
+    "typescript": "^3.8.3"
+  },
+  "dependencies": {
+    "bezier-easing": "^2.1.0",
+    "domready": "^1.0.8",
+    "lodash-es": "^4.17.15",
+    "parcel-bundler": "^1.12.4",
+    "ts-node": "^8.8.2"
+  }
+}
