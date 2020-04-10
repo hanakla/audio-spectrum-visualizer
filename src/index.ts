@@ -3,11 +3,13 @@ import { chunk, sum } from "lodash-es";
 import easing from "bezier-easing";
 
 domReady(async () => {
-  const WAVE_LEFT = 16;
-  const WAVE_BOTTOM = 16;
-  const WAVE_HEIGHT = 64;
+  const WAVE_LEFT = 8;
+  const WAVE_BOTTOM = 8;
+  const WAVE_HEIGHT = 128;
   const WAVE_WIDTH = 4;
   const WAVE_MARGIN = 4;
+  const WAVE_MAX_WIDTH = 480;
+  const CHUNK_SIZE = 8;
   const DEVICEID =
     "9b0c320fedc88fedc0a9ce12dab9f49d654aa982a8708c002a606f70c42bce57";
 
@@ -15,33 +17,30 @@ domReady(async () => {
   const ctx = c.getContext("2d");
 
   const devs = await navigator.mediaDevices.enumerateDevices();
-  // const dev = devs.filter((d) => d.label === "Soundflower (2ch)")[0];
-  console.log(devs);
+  const dev = devs.filter(d => d.label === "Soundflower (2ch)")[0];
+  console.log("using", dev);
 
   const media = await navigator.mediaDevices.getUserMedia({
-    // audio: { deviceId: dev.deviceId },
-    audio: { deviceId: DEVICEID },
+    audio: { deviceId: dev.deviceId }
   });
 
   const actx = new AudioContext({ sampleRate: 48000 });
   const devin = actx.createMediaStreamSource(media);
 
   const gain = actx.createGain();
-  gain.gain.setValueAtTime(50, 0);
+  gain.gain.setValueAtTime(200, 0);
 
   const eq = actx.createBiquadFilter();
   eq.type = "lowpass";
-  eq.frequency.setValueAtTime(200, 0);
-  eq.Q.setValueAtTime(0, 0);
+  eq.frequency.setValueAtTime(1000, 0);
 
   const eq2 = actx.createBiquadFilter();
   eq2.type = "highpass";
   eq2.frequency.setValueAtTime(200, 0);
-  eq2.Q.setValueAtTime(10000, 0);
 
   const comp = actx.createDynamicsCompressor();
   comp.attack.setValueAtTime(0, 0);
-  comp.threshold.setValueAtTime(-40, 0);
+  comp.threshold.setValueAtTime(-50, 0);
   comp.ratio.setValueAtTime(20, 0);
 
   const analyzer = actx.createAnalyser();
@@ -49,16 +48,17 @@ domReady(async () => {
   analyzer.fftSize = 8192;
 
   devin.connect(gain);
-  gain.connect(eq);
+  gain.connect(comp);
+  comp.connect(eq);
   eq.connect(eq2);
-  eq2.connect(comp);
 
-  comp.connect(analyzer);
-  // eq.connect(actx.destination);
+  eq2.connect(analyzer);
+  eq2.connect(actx.destination);
 
   const buf = new Uint8Array(analyzer.frequencyBinCount);
   const samplePosEasing = easing(0.13, 0.02, 1, 1);
   const samplingEase = easing(0.51, 0.04, 0.5, 0.9);
+  const heightEasing = easing(0.49, 0.02, 0.44, 0.97);
 
   const sampling = (idx: number, array: number[]) => {
     const normIdx = Math.round(idx);
@@ -79,24 +79,25 @@ domReady(async () => {
 
     analyzer.getByteFrequencyData(buf);
 
-    chunk(buf, 8)
-      .map((nums) => sum(nums))
-      .forEach((_, idx, samples) => {
-        const left = WAVE_LEFT + idx * (WAVE_WIDTH + WAVE_MARGIN);
-        const s = sampling(
-          samples.length * samplePosEasing(idx / samples.length),
-          samples
-        );
+    const samples = chunk(buf, CHUNK_SIZE).map(nums => sum(nums));
 
-        ctx.beginPath();
-        ctx.moveTo(left, c.height - WAVE_BOTTOM);
-        ctx.lineTo(
-          left,
-          c.height - WAVE_BOTTOM - WAVE_HEIGHT * (s / (255 * 4))
-        );
-        ctx.closePath();
-        ctx.stroke();
-      });
+    for (let idx = 0, l = samples.length; idx < l; idx++) {
+      const left = WAVE_LEFT + idx * (WAVE_WIDTH + WAVE_MARGIN);
+      if (left > WAVE_MAX_WIDTH) break;
+
+      const normSample = sampling(
+        samples.length * samplePosEasing(idx / samples.length),
+        samples
+      );
+
+      const height = heightEasing(normSample / (255 * CHUNK_SIZE));
+
+      ctx.beginPath();
+      ctx.moveTo(left, c.height - WAVE_BOTTOM);
+      ctx.lineTo(left, c.height - WAVE_BOTTOM - WAVE_HEIGHT * height);
+      ctx.closePath();
+      ctx.stroke();
+    }
 
     requestAnimationFrame(render);
   };
